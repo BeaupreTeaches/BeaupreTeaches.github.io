@@ -32,6 +32,15 @@
     input[type="range"] {
       width: 300px;
     }
+    .buttons {
+      margin-top: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      margin-right: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -48,6 +57,10 @@
     Imag part (Im(c)): <span id="cImVal">0.270</span>
     <input type="range" id="cIm" min="-1" max="1" step="0.01" value="0.27015" />
   </label>
+  <div class="buttons">
+    <button id="resetBtn">Reset View</button>
+    <button id="toggleAutoBtn">Start Auto-Play</button>
+  </div>
 </div>
 
 <script>
@@ -56,26 +69,45 @@
   const width = canvas.width;
   const height = canvas.height;
 
-  let minRe = -1.5, maxRe = 1.5;
-  let minIm = -1.5, maxIm = 1.5;
+  // Initial view and constants
+  const initial = {
+    minRe: -1.5,
+    maxRe: 1.5,
+    minIm: -1.5,
+    maxIm: 1.5,
+    cRe: -0.7,
+    cIm: 0.27015
+  };
+
+  let minRe = initial.minRe, maxRe = initial.maxRe;
+  let minIm = initial.minIm, maxIm = initial.maxIm;
+  let cRe = initial.cRe;
+  let cIm = initial.cIm;
   const maxIter = 300;
 
-  let cRe = parseFloat(document.getElementById('cRe').value);
-  let cIm = parseFloat(document.getElementById('cIm').value);
+  let autoPlay = false;
+  let t = 0;
 
-  // HSV to RGB for coloring
+  const cReSlider = document.getElementById('cRe');
+  const cImSlider = document.getElementById('cIm');
+  const cReVal = document.getElementById('cReVal');
+  const cImVal = document.getElementById('cImVal');
+  const resetBtn = document.getElementById('resetBtn');
+  const toggleAutoBtn = document.getElementById('toggleAutoBtn');
+
+  // HSV to RGB for color
   function HSVtoRGB(h, s, v) {
     let c = v * s;
     let x = c * (1 - Math.abs((h / 60) % 2 - 1));
     let m = v - c;
     let r = 0, g = 0, b = 0;
 
-    if (h < 60)      [r, g, b] = [c, x, 0];
-    else if (h < 120)[r, g, b] = [x, c, 0];
-    else if (h < 180)[r, g, b] = [0, c, x];
-    else if (h < 240)[r, g, b] = [0, x, c];
-    else if (h < 300)[r, g, b] = [x, 0, c];
-    else             [r, g, b] = [c, 0, x];
+    if (h < 60) [r, g, b] = [c, x, 0];
+    else if (h < 120) [r, g, b] = [x, c, 0];
+    else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c];
+    else if (h < 300) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
 
     return [Math.floor((r + m) * 255), Math.floor((g + m) * 255), Math.floor((b + m) * 255)];
   }
@@ -99,7 +131,6 @@
       for (let py = 0; py < height; py++) {
         const x = minRe + (px / width) * (maxRe - minRe);
         const y = minIm + (py / height) * (maxIm - minIm);
-
         const i = julia(x, y);
         const p = (py * width + px) * 4;
 
@@ -125,33 +156,23 @@
     const re = minRe + (x / width) * (maxRe - minRe);
     const im = minIm + (y / height) * (maxIm - minIm);
 
-    const reWidth = maxRe - minRe;
-    const imHeight = maxIm - minIm;
-
-    const newReWidth = reWidth * scale;
-    const newImHeight = imHeight * scale;
+    const reWidth = (maxRe - minRe) * scale;
+    const imHeight = (maxIm - minIm) * scale;
 
     minRe = re - (re - minRe) * scale;
-    maxRe = minRe + newReWidth;
-
+    maxRe = minRe + reWidth;
     minIm = im - (im - minIm) * scale;
-    maxIm = minIm + newImHeight;
+    maxIm = minIm + imHeight;
   }
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const zoomIn = e.deltaY < 0;
-    const zoomFactor = zoomIn ? 0.8 : 1.25;
+    const zoomFactor = e.deltaY < 0 ? 0.8 : 1.25;
     zoomAt(e.offsetX, e.offsetY, zoomFactor);
     drawJulia();
   });
 
-  // Update sliders
-  const cReSlider = document.getElementById('cRe');
-  const cImSlider = document.getElementById('cIm');
-  const cReVal = document.getElementById('cReVal');
-  const cImVal = document.getElementById('cImVal');
-
+  // Sliders
   cReSlider.addEventListener('input', () => {
     cRe = parseFloat(cReSlider.value);
     cReVal.textContent = cRe.toFixed(2);
@@ -164,7 +185,43 @@
     drawJulia();
   });
 
+  // Reset
+  resetBtn.addEventListener('click', () => {
+    minRe = initial.minRe;
+    maxRe = initial.maxRe;
+    minIm = initial.minIm;
+    maxIm = initial.maxIm;
+    cRe = initial.cRe;
+    cIm = initial.cIm;
+    cReSlider.value = cRe;
+    cImSlider.value = cIm;
+    cReVal.textContent = cRe.toFixed(2);
+    cImVal.textContent = cIm.toFixed(3);
+    drawJulia();
+  });
+
+  // Auto-play animation
+  toggleAutoBtn.addEventListener('click', () => {
+    autoPlay = !autoPlay;
+    toggleAutoBtn.textContent = autoPlay ? 'Stop Auto-Play' : 'Start Auto-Play';
+  });
+
+  function animate() {
+    if (autoPlay) {
+      cRe = 0.7885 * Math.cos(t);
+      cIm = 0.7885 * Math.sin(t);
+      cReSlider.value = cRe.toFixed(3);
+      cImSlider.value = cIm.toFixed(3);
+      cReVal.textContent = cRe.toFixed(3);
+      cImVal.textContent = cIm.toFixed(3);
+      t += 0.02;
+      drawJulia();
+    }
+    requestAnimationFrame(animate);
+  }
+
   drawJulia();
+  animate();
 </script>
 
 </body>
