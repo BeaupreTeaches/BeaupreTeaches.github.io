@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Interactive Logistic Map</title>
+<style>
+  body {
+    background: #222;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0; padding: 20px;
+  }
+  canvas {
+    background: black;
+    border: 1px solid #555;
+    margin-top: 20px;
+  }
+  label {
+    margin-top: 10px;
+    font-size: 1.1rem;
+  }
+  input[type="range"] {
+    width: 300px;
+  }
+</style>
+</head>
+<body>
+
+<h2>Interactive Logistic Map</h2>
+
+<label for="rRange">Parameter r: <span id="rValue">3.5</span></label>
+<input type="range" id="rRange" min="2.5" max="4" step="0.001" value="3.5" />
+
+<canvas id="logisticCanvas" width="700" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById('logisticCanvas');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const rRange = document.getElementById('rRange');
+  const rValueSpan = document.getElementById('rValue');
+
+  let r = parseFloat(rRange.value);
+  const iterations = 300;
+  const skip = 100; // Skip first values for transient
+
+  // Logistic map function
+  function logistic(x, r) {
+    return r * x * (1 - x);
+  }
+
+  // Draw axes
+  function drawAxes() {
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // x-axis
+    ctx.moveTo(50, height - 50);
+    ctx.lineTo(width - 20, height - 50);
+    // y-axis
+    ctx.moveTo(50, height - 50);
+    ctx.lineTo(50, 20);
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = '#ccc';
+    ctx.font = '14px Arial';
+    ctx.fillText('Iteration', width / 2, height - 15);
+    ctx.save();
+    ctx.translate(15, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('x value', 0, 0);
+    ctx.restore();
+
+    // Draw y=0 and y=1 lines
+    ctx.strokeStyle = '#444';
+    ctx.beginPath();
+    ctx.moveTo(50, height - 50);
+    ctx.lineTo(width - 20, height - 50);
+    ctx.moveTo(50, 20);
+    ctx.lineTo(width - 20, 20);
+    ctx.stroke();
+  }
+
+  // Plot logistic map iterations
+  function plotLogistic(r) {
+    ctx.clearRect(0, 0, width, height);
+    drawAxes();
+
+    let x = 0.5; // initial condition
+    let points = [];
+
+    for(let i=0; i<iterations; i++) {
+      x = logistic(x, r);
+      if(i > skip) {
+        points.push(x);
+      }
+    }
+
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    // scale x: iteration number, y: x value in [0,1]
+    for(let i=0; i<points.length; i++) {
+      let px = 50 + (i * (width - 70) / points.length);
+      let py = height - 50 - points[i] * (height - 70);
+
+      if(i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+
+    ctx.stroke();
+  }
+
+  // Update on slider change
+  rRange.addEventListener('input', () => {
+    r = parseFloat(rRange.value);
+    rValueSpan.textContent = r.toFixed(3);
+    plotLogistic(r);
+  });
+
+  // Initial plot
+  plotLogistic(r);
+</script>
+
+</body>
+</html>
