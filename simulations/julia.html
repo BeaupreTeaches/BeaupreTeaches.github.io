@@ -2,102 +2,170 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Zoomable Julia Set</title>
+  <title>Julia Set Interactive</title>
   <style>
     body {
       margin: 0;
-      background: black;
+      background: #111;
       color: white;
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 1rem;
     }
     canvas {
       border: 1px solid #444;
       margin-top: 1rem;
       cursor: zoom-in;
     }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 1rem;
+    }
+    label {
+      font-size: 14px;
+    }
+    input[type="range"] {
+      width: 300px;
+    }
   </style>
 </head>
 <body>
-  <h2>Zoomable Julia Set</h2>
-  <canvas id="juliaCanvas" width="600" height="600"></canvas>
 
-  <script>
-    const canvas = document.getElementById('juliaCanvas');
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+<h2>Interactive Julia Set</h2>
+<canvas id="juliaCanvas" width="600" height="600"></canvas>
 
-    // Complex viewport boundaries
-    let minRe = -1.5, maxRe = 1.5;
-    let minIm = -1.5, maxIm = 1.5;
+<div class="controls">
+  <label>
+    Real part (Re(c)): <span id="cReVal">-0.7</span>
+    <input type="range" id="cRe" min="-1" max="1" step="0.01" value="-0.7" />
+  </label>
+  <label>
+    Imag part (Im(c)): <span id="cImVal">0.270</span>
+    <input type="range" id="cIm" min="-1" max="1" step="0.01" value="0.27015" />
+  </label>
+</div>
 
-    const maxIter = 300;
-    const cRe = -0.7;
-    const cIm = 0.27015;
+<script>
+  const canvas = document.getElementById('juliaCanvas');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
 
-    function julia(x, y) {
-      let zx = x;
-      let zy = y;
-      let i = maxIter;
-      while (zx*zx + zy*zy < 4 && i > 0) {
-        let tmp = zx*zx - zy*zy + cRe;
-        zy = 2.0 * zx * zy + cIm;
-        zx = tmp;
-        i--;
-      }
-      return i;
+  let minRe = -1.5, maxRe = 1.5;
+  let minIm = -1.5, maxIm = 1.5;
+  const maxIter = 300;
+
+  let cRe = parseFloat(document.getElementById('cRe').value);
+  let cIm = parseFloat(document.getElementById('cIm').value);
+
+  // HSV to RGB for coloring
+  function HSVtoRGB(h, s, v) {
+    let c = v * s;
+    let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    let m = v - c;
+    let r = 0, g = 0, b = 0;
+
+    if (h < 60)      [r, g, b] = [c, x, 0];
+    else if (h < 120)[r, g, b] = [x, c, 0];
+    else if (h < 180)[r, g, b] = [0, c, x];
+    else if (h < 240)[r, g, b] = [0, x, c];
+    else if (h < 300)[r, g, b] = [x, 0, c];
+    else             [r, g, b] = [c, 0, x];
+
+    return [Math.floor((r + m) * 255), Math.floor((g + m) * 255), Math.floor((b + m) * 255)];
+  }
+
+  function julia(x, y) {
+    let zx = x;
+    let zy = y;
+    let i = 0;
+    while (zx * zx + zy * zy < 4 && i < maxIter) {
+      const tmp = zx * zx - zy * zy + cRe;
+      zy = 2.0 * zx * zy + cIm;
+      zx = tmp;
+      i++;
     }
+    return i;
+  }
 
-    function drawJulia() {
-      const imgData = ctx.createImageData(width, height);
-      for (let x = 0; x < width; x++) {
-        for (let y = 0; y < height; y++) {
-          // Map screen to complex plane
-          let zx = minRe + (x / width) * (maxRe - minRe);
-          let zy = minIm + (y / height) * (maxIm - minIm);
+  function drawJulia() {
+    const imgData = ctx.createImageData(width, height);
+    for (let px = 0; px < width; px++) {
+      for (let py = 0; py < height; py++) {
+        const x = minRe + (px / width) * (maxRe - minRe);
+        const y = minIm + (py / height) * (maxIm - minIm);
 
-          let i = julia(zx, zy);
-          let p = (y * width + x) * 4;
-          let color = i === 0 ? 0 : 255 - Math.floor(i * 255 / maxIter);
-          imgData.data[p] = color;
-          imgData.data[p + 1] = color;
-          imgData.data[p + 2] = color;
+        const i = julia(x, y);
+        const p = (py * width + px) * 4;
+
+        if (i === maxIter) {
+          imgData.data[p] = 0;
+          imgData.data[p + 1] = 0;
+          imgData.data[p + 2] = 0;
+          imgData.data[p + 3] = 255;
+        } else {
+          const hue = (360 * i / maxIter + 200) % 360;
+          const [r, g, b] = HSVtoRGB(hue, 1, 1);
+          imgData.data[p] = r;
+          imgData.data[p + 1] = g;
+          imgData.data[p + 2] = b;
           imgData.data[p + 3] = 255;
         }
       }
-      ctx.putImageData(imgData, 0, 0);
     }
+    ctx.putImageData(imgData, 0, 0);
+  }
 
-    function zoomAt(x, y, scale) {
-      // Convert screen coords to complex
-      const re = minRe + (x / width) * (maxRe - minRe);
-      const im = minIm + (y / height) * (maxIm - minIm);
+  function zoomAt(x, y, scale) {
+    const re = minRe + (x / width) * (maxRe - minRe);
+    const im = minIm + (y / height) * (maxIm - minIm);
 
-      const reWidth = maxRe - minRe;
-      const imHeight = maxIm - minIm;
+    const reWidth = maxRe - minRe;
+    const imHeight = maxIm - minIm;
 
-      const newReWidth = reWidth * scale;
-      const newImHeight = imHeight * scale;
+    const newReWidth = reWidth * scale;
+    const newImHeight = imHeight * scale;
 
-      minRe = re - (re - minRe) * scale;
-      maxRe = minRe + newReWidth;
+    minRe = re - (re - minRe) * scale;
+    maxRe = minRe + newReWidth;
 
-      minIm = im - (im - minIm) * scale;
-      maxIm = minIm + newImHeight;
-    }
+    minIm = im - (im - minIm) * scale;
+    maxIm = minIm + newImHeight;
+  }
 
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomIn = e.deltaY < 0;
-      const zoomFactor = zoomIn ? 0.8 : 1.25;
-      zoomAt(e.offsetX, e.offsetY, zoomFactor);
-      drawJulia();
-    });
-
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoomIn = e.deltaY < 0;
+    const zoomFactor = zoomIn ? 0.8 : 1.25;
+    zoomAt(e.offsetX, e.offsetY, zoomFactor);
     drawJulia();
-  </script>
+  });
+
+  // Update sliders
+  const cReSlider = document.getElementById('cRe');
+  const cImSlider = document.getElementById('cIm');
+  const cReVal = document.getElementById('cReVal');
+  const cImVal = document.getElementById('cImVal');
+
+  cReSlider.addEventListener('input', () => {
+    cRe = parseFloat(cReSlider.value);
+    cReVal.textContent = cRe.toFixed(2);
+    drawJulia();
+  });
+
+  cImSlider.addEventListener('input', () => {
+    cIm = parseFloat(cImSlider.value);
+    cImVal.textContent = cIm.toFixed(3);
+    drawJulia();
+  });
+
+  drawJulia();
+</script>
+
 </body>
 </html>
