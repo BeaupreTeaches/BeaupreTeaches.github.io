@@ -2,14 +2,43 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Julia Set</title>
+  <title>Interactive Julia Set</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; margin: auto; background: black; }
+    body {
+      margin: 0; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      background: black; 
+      color: white; 
+      font-family: Arial, sans-serif;
+      user-select: none;
+    }
+    canvas { 
+      background: black; 
+      cursor: crosshair;
+      margin-top: 1rem;
+      border: 1px solid #444;
+    }
+    label {
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+    input[type="range"] {
+      width: 200px;
+    }
   </style>
 </head>
 <body>
+
 <canvas id="juliaCanvas" width="600" height="600"></canvas>
+
+<label for="hueRange">Color Hue Shift:
+  <input type="range" id="hueRange" min="0" max="360" value="0" />
+</label>
 
 <script>
   const canvas = document.getElementById('juliaCanvas');
@@ -17,14 +46,16 @@
   const width = canvas.width;
   const height = canvas.height;
 
-  // Parameters for Julia set
-  const zoom = 1.5;
-  const moveX = 0;
-  const moveY = 0;
+  // Julia set parameters
+  let zoom = 1.5;
+  let moveX = 0;
+  let moveY = 0;
   const maxIter = 300;
-  // Complex parameter c for Julia set: change to explore different shapes
   const cRe = -0.7;
   const cIm = 0.27015;
+
+  // Color hue shift (degrees)
+  let hueShift = 0;
 
   function julia(x, y) {
     let zx = x;
@@ -39,6 +70,35 @@
     return i;
   }
 
+  // Convert iteration count to color with hue shift
+  function getColor(i) {
+    if(i === 0) return [0, 0, 0];
+    const t = i / maxIter;
+    // HSV to RGB conversion for smooth colors
+    const hue = (hueShift + 360 * t) % 360;
+    const saturation = 1;
+    const value = t < 1 ? 1 : 0;
+
+    return HSVtoRGB(hue, saturation, value);
+  }
+
+  // HSV to RGB helper
+  function HSVtoRGB(h, s, v) {
+    let c = v * s;
+    let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    let m = v - c;
+    let r=0, g=0, b=0;
+
+    if (0 <= h && h < 60)      [r,g,b] = [c,x,0];
+    else if (60 <= h && h <120) [r,g,b] = [x,c,0];
+    else if (120 <= h && h <180) [r,g,b] = [0,c,x];
+    else if (180 <= h && h <240) [r,g,b] = [0,x,c];
+    else if (240 <= h && h <300) [r,g,b] = [x,0,c];
+    else if (300 <= h && h <360) [r,g,b] = [c,0,x];
+
+    return [Math.floor((r+m)*255), Math.floor((g+m)*255), Math.floor((b+m)*255)];
+  }
+
   function drawJulia() {
     const imgData = ctx.createImageData(width, height);
     for(let x=0; x < width; x++) {
@@ -49,17 +109,47 @@
         let i = julia(zx, zy);
 
         let p = (y * width + x) * 4;
-        let color = i === 0 ? 0 : 255 - Math.floor(i * 255 / maxIter);
-        imgData.data[p] = color;       // Red
-        imgData.data[p+1] = color;     // Green
-        imgData.data[p+2] = color;     // Blue
-        imgData.data[p+3] = 255;       // Alpha
+        const [r,g,b] = getColor(i);
+
+        imgData.data[p] = r;
+        imgData.data[p+1] = g;
+        imgData.data[p+2] = b;
+        imgData.data[p+3] = 255;
       }
     }
     ctx.putImageData(imgData, 0, 0);
   }
 
+  // Zoom with mouse wheel
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const mouseX = e.offsetX;
+    const mouseY = e.offsetY;
+
+    // Convert mouse coords to complex plane coords before zoom
+    const x = 1.5 * (mouseX - width/2) / (0.5 * zoom * width) + moveX;
+    const y = (mouseY - height/2) / (0.5 * zoom * height) + moveY;
+
+    // Zoom factor
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    zoom *= zoomFactor;
+
+    // Adjust moveX and moveY to zoom centered at mouse pointer
+    moveX = x - (1.5 * (mouseX - width/2) / (0.5 * zoom * width));
+    moveY = y - ((mouseY - height/2) / (0.5 * zoom * height));
+
+    drawJulia();
+  });
+
+  // Hue slider handler
+  const hueRange = document.getElementById('hueRange');
+  hueRange.addEventListener('input', () => {
+    hueShift = Number(hueRange.value);
+    drawJulia();
+  });
+
   drawJulia();
 </script>
+
 </body>
 </html>
