@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Interactive Julia Set</title>
+  <title>Interactive Julia Set with Reset</title>
   <style>
     body {
       margin: 0; 
@@ -30,6 +30,19 @@
     input[type="range"] {
       width: 200px;
     }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      background-color: #222;
+      border: 1px solid #555;
+      color: white;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #444;
+    }
   </style>
 </head>
 <body>
@@ -40,22 +53,29 @@
   <input type="range" id="hueRange" min="0" max="360" value="0" />
 </label>
 
+<button id="resetBtn">Reset View</button>
+
 <script>
   const canvas = document.getElementById('juliaCanvas');
   const ctx = canvas.getContext('2d');
   const width = canvas.width;
   const height = canvas.height;
 
-  // Julia set parameters
-  let zoom = 1.5;
-  let moveX = 0;
-  let moveY = 0;
+  // Initial Julia set parameters
+  const initZoom = 1.5;
+  const initMoveX = 0;
+  const initMoveY = 0;
+  const initHueShift = 0;
+
+  // Variables for current state
+  let zoom = initZoom;
+  let moveX = initMoveX;
+  let moveY = initMoveY;
+  let hueShift = initHueShift;
+
   const maxIter = 300;
   const cRe = -0.7;
   const cIm = 0.27015;
-
-  // Color hue shift (degrees)
-  let hueShift = 0;
 
   function julia(x, y) {
     let zx = x;
@@ -70,19 +90,15 @@
     return i;
   }
 
-  // Convert iteration count to color with hue shift
   function getColor(i) {
     if(i === 0) return [0, 0, 0];
     const t = i / maxIter;
-    // HSV to RGB conversion for smooth colors
     const hue = (hueShift + 360 * t) % 360;
     const saturation = 1;
     const value = t < 1 ? 1 : 0;
-
     return HSVtoRGB(hue, saturation, value);
   }
 
-  // HSV to RGB helper
   function HSVtoRGB(h, s, v) {
     let c = v * s;
     let x = c * (1 - Math.abs((h / 60) % 2 - 1));
@@ -120,31 +136,37 @@
     ctx.putImageData(imgData, 0, 0);
   }
 
-  // Zoom with mouse wheel
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const mouseX = e.offsetX;
     const mouseY = e.offsetY;
 
-    // Convert mouse coords to complex plane coords before zoom
     const x = 1.5 * (mouseX - width/2) / (0.5 * zoom * width) + moveX;
     const y = (mouseY - height/2) / (0.5 * zoom * height) + moveY;
 
-    // Zoom factor
     const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
     zoom *= zoomFactor;
 
-    // Adjust moveX and moveY to zoom centered at mouse pointer
     moveX = x - (1.5 * (mouseX - width/2) / (0.5 * zoom * width));
     moveY = y - ((mouseY - height/2) / (0.5 * zoom * height));
 
     drawJulia();
   });
 
-  // Hue slider handler
   const hueRange = document.getElementById('hueRange');
   hueRange.addEventListener('input', () => {
     hueShift = Number(hueRange.value);
+    drawJulia();
+  });
+
+  // Reset button functionality
+  const resetBtn = document.getElementById('resetBtn');
+  resetBtn.addEventListener('click', () => {
+    zoom = initZoom;
+    moveX = initMoveX;
+    moveY = initMoveY;
+    hueShift = initHueShift;
+    hueRange.value = initHueShift;
     drawJulia();
   });
 
