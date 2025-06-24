@@ -2,176 +2,102 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Interactive Julia Set with Reset</title>
+  <title>Zoomable Julia Set</title>
   <style>
     body {
-      margin: 0; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      background: black; 
-      color: white; 
-      font-family: Arial, sans-serif;
-      user-select: none;
-    }
-    canvas { 
-      background: black; 
-      cursor: crosshair;
-      margin-top: 1rem;
-      border: 1px solid #444;
-    }
-    label {
-      margin-top: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.9rem;
-    }
-    input[type="range"] {
-      width: 200px;
-    }
-    button {
-      margin-top: 1rem;
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      cursor: pointer;
-      background-color: #222;
-      border: 1px solid #555;
+      margin: 0;
+      background: black;
       color: white;
-      border-radius: 4px;
+      font-family: Arial;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    button:hover {
-      background-color: #444;
+    canvas {
+      border: 1px solid #444;
+      margin-top: 1rem;
+      cursor: zoom-in;
     }
   </style>
 </head>
 <body>
+  <h2>Zoomable Julia Set</h2>
+  <canvas id="juliaCanvas" width="600" height="600"></canvas>
 
-<canvas id="juliaCanvas" width="600" height="600"></canvas>
+  <script>
+    const canvas = document.getElementById('juliaCanvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
 
-<label for="hueRange">Color Hue Shift:
-  <input type="range" id="hueRange" min="0" max="360" value="0" />
-</label>
+    // Complex viewport boundaries
+    let minRe = -1.5, maxRe = 1.5;
+    let minIm = -1.5, maxIm = 1.5;
 
-<button id="resetBtn">Reset View</button>
+    const maxIter = 300;
+    const cRe = -0.7;
+    const cIm = 0.27015;
 
-<script>
-  const canvas = document.getElementById('juliaCanvas');
-  const ctx = canvas.getContext('2d');
-  const width = canvas.width;
-  const height = canvas.height;
-
-  // Initial Julia set parameters
-  const initZoom = 1.5;
-  const initMoveX = 0;
-  const initMoveY = 0;
-  const initHueShift = 0;
-
-  // Variables for current state
-  let zoom = initZoom;
-  let moveX = initMoveX;
-  let moveY = initMoveY;
-  let hueShift = initHueShift;
-
-  const maxIter = 300;
-  const cRe = -0.7;
-  const cIm = 0.27015;
-
-  function julia(x, y) {
-    let zx = x;
-    let zy = y;
-    let i = maxIter;
-    while (zx*zx + zy*zy < 4 && i > 0) {
-      let tmp = zx*zx - zy*zy + cRe;
-      zy = 2.0 * zx * zy + cIm;
-      zx = tmp;
-      i--;
-    }
-    return i;
-  }
-
-  function getColor(i) {
-    if(i === 0) return [0, 0, 0];
-    const t = i / maxIter;
-    const hue = (hueShift + 360 * t) % 360;
-    const saturation = 1;
-    const value = t < 1 ? 1 : 0;
-    return HSVtoRGB(hue, saturation, value);
-  }
-
-  function HSVtoRGB(h, s, v) {
-    let c = v * s;
-    let x = c * (1 - Math.abs((h / 60) % 2 - 1));
-    let m = v - c;
-    let r=0, g=0, b=0;
-
-    if (0 <= h && h < 60)      [r,g,b] = [c,x,0];
-    else if (60 <= h && h <120) [r,g,b] = [x,c,0];
-    else if (120 <= h && h <180) [r,g,b] = [0,c,x];
-    else if (180 <= h && h <240) [r,g,b] = [0,x,c];
-    else if (240 <= h && h <300) [r,g,b] = [x,0,c];
-    else if (300 <= h && h <360) [r,g,b] = [c,0,x];
-
-    return [Math.floor((r+m)*255), Math.floor((g+m)*255), Math.floor((b+m)*255)];
-  }
-
-  function drawJulia() {
-    const imgData = ctx.createImageData(width, height);
-    for(let x=0; x < width; x++) {
-      for(let y=0; y < height; y++) {
-        let zx = 1.5 * (x - width/2) / (0.5 * zoom * width) + moveX;
-        let zy = (y - height/2) / (0.5 * zoom * height) + moveY;
-
-        let i = julia(zx, zy);
-
-        let p = (y * width + x) * 4;
-        const [r,g,b] = getColor(i);
-
-        imgData.data[p] = r;
-        imgData.data[p+1] = g;
-        imgData.data[p+2] = b;
-        imgData.data[p+3] = 255;
+    function julia(x, y) {
+      let zx = x;
+      let zy = y;
+      let i = maxIter;
+      while (zx*zx + zy*zy < 4 && i > 0) {
+        let tmp = zx*zx - zy*zy + cRe;
+        zy = 2.0 * zx * zy + cIm;
+        zx = tmp;
+        i--;
       }
+      return i;
     }
-    ctx.putImageData(imgData, 0, 0);
-  }
 
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const mouseX = e.offsetX;
-    const mouseY = e.offsetY;
+    function drawJulia() {
+      const imgData = ctx.createImageData(width, height);
+      for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+          // Map screen to complex plane
+          let zx = minRe + (x / width) * (maxRe - minRe);
+          let zy = minIm + (y / height) * (maxIm - minIm);
 
-    const x = 1.5 * (mouseX - width/2) / (0.5 * zoom * width) + moveX;
-    const y = (mouseY - height/2) / (0.5 * zoom * height) + moveY;
+          let i = julia(zx, zy);
+          let p = (y * width + x) * 4;
+          let color = i === 0 ? 0 : 255 - Math.floor(i * 255 / maxIter);
+          imgData.data[p] = color;
+          imgData.data[p + 1] = color;
+          imgData.data[p + 2] = color;
+          imgData.data[p + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
 
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    zoom *= zoomFactor;
+    function zoomAt(x, y, scale) {
+      // Convert screen coords to complex
+      const re = minRe + (x / width) * (maxRe - minRe);
+      const im = minIm + (y / height) * (maxIm - minIm);
 
-    moveX = x - (1.5 * (mouseX - width/2) / (0.5 * zoom * width));
-    moveY = y - ((mouseY - height/2) / (0.5 * zoom * height));
+      const reWidth = maxRe - minRe;
+      const imHeight = maxIm - minIm;
+
+      const newReWidth = reWidth * scale;
+      const newImHeight = imHeight * scale;
+
+      minRe = re - (re - minRe) * scale;
+      maxRe = minRe + newReWidth;
+
+      minIm = im - (im - minIm) * scale;
+      maxIm = minIm + newImHeight;
+    }
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomIn = e.deltaY < 0;
+      const zoomFactor = zoomIn ? 0.8 : 1.25;
+      zoomAt(e.offsetX, e.offsetY, zoomFactor);
+      drawJulia();
+    });
 
     drawJulia();
-  });
-
-  const hueRange = document.getElementById('hueRange');
-  hueRange.addEventListener('input', () => {
-    hueShift = Number(hueRange.value);
-    drawJulia();
-  });
-
-  // Reset button functionality
-  const resetBtn = document.getElementById('resetBtn');
-  resetBtn.addEventListener('click', () => {
-    zoom = initZoom;
-    moveX = initMoveX;
-    moveY = initMoveY;
-    hueShift = initHueShift;
-    hueRange.value = initHueShift;
-    drawJulia();
-  });
-
-  drawJulia();
-</script>
-
+  </script>
 </body>
 </html>
